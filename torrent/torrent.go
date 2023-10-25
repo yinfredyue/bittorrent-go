@@ -2,6 +2,7 @@ package torrent
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"fmt"
 	"os"
 
@@ -16,13 +17,31 @@ const (
 type Info struct {
 	Name        string
 	PieceLength int
-	PieceHashes []([pieceHashLength]byte)
+	PieceHashes []([]byte)
 	Length      int
 }
 
 type Torrent struct {
 	Tracker string
 	Info    Info
+}
+
+func (t *Torrent) InfoHash() ([]byte, error) {
+	dict := map[string](interface{}){
+		"length":       t.Info.Length,
+		"name":         t.Info.Name,
+		"piece length": t.Info.PieceLength,
+		"pieces":       bytes.Join(t.Info.PieceHashes, []byte{}),
+	}
+
+	var buf bytes.Buffer
+	err := bencode.Marshal(&buf, dict)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := sha1.Sum(buf.Bytes())
+	return hash[:], nil
 }
 
 func OfBytes(b []byte) (Torrent, error) {
@@ -68,11 +87,11 @@ func OfBytes(b []byte) (Torrent, error) {
 	util.DPrintf("len(Pieces): %v\n", len(pieceHashesBytes))
 
 	numPieces := len(pieceHashesBytes) / pieceHashLength
-	pieceHashes := make([]([pieceHashLength]byte), numPieces)
+	pieceHashes := make([]([]byte), numPieces)
 	for i := 0; i < numPieces; i++ {
 		bytes := pieceHashesBytes[i*pieceHashLength : (i+1)*pieceHashLength]
 		util.AssertEqual(len(bytes), pieceHashLength)
-		copy(pieceHashes[i][:], bytes)
+		pieceHashes[i] = []byte(bytes)
 	}
 
 	length, ok := infoDict["length"].(int64)

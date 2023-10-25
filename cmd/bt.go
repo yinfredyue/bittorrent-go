@@ -13,6 +13,11 @@ func main() {
 			Usage:  "Parse and print out information about a torrent file",
 			Action: info,
 		},
+		{
+			Name:   "peers",
+			Usage:  "Connect to peers and exit",
+			Action: peers,
+		},
 	}
 
 	app := cli.App{
