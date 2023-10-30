@@ -13,13 +13,15 @@ import (
 
 	"github.com/jackpal/bencode-go"
 	"github.com/yinfredyue/bittorrent-go/torrent"
+	"github.com/yinfredyue/bittorrent-go/util"
 )
 
 type Client struct {
 	torrent torrent.Torrent
+	peers   []*connectedPeer
 }
 
-func loadPeers(t torrent.Torrent) ([]peer, error) {
+func loadPeerAddrPorts(t torrent.Torrent) ([]netip.AddrPort, error) {
 	// send GET request to tracker
 	infoHash, err := t.InfoHash()
 	if err != nil {
@@ -64,7 +66,7 @@ func loadPeers(t torrent.Torrent) ([]peer, error) {
 		return nil, fmt.Errorf("fail to decode tracker response")
 	}
 
-	var peers []peer
+	var peers []netip.AddrPort
 	switch peersRaw := decodedDict["peers"].(type) {
 	case string:
 		// Compact
@@ -78,8 +80,7 @@ func loadPeers(t torrent.Torrent) ([]peer, error) {
 			}
 			port := binary.BigEndian.Uint16([]byte(peersRaw[i+4 : i+6]))
 			addrPort := netip.AddrPortFrom(addr, port)
-			peer := peer{addrPort: addrPort}
-			peers = append(peers, peer)
+			peers = append(peers, addrPort)
 		}
 	case [](interface{}):
 		// Not compact
@@ -93,8 +94,7 @@ func loadPeers(t torrent.Torrent) ([]peer, error) {
 			}
 			port := peerRawDict["port"].(int64)
 			addrPort := netip.AddrPortFrom(addr, uint16(port))
-			peer := peer{addrPort: addrPort}
-			peers = append(peers, peer)
+			peers = append(peers, addrPort)
 		}
 	default:
 		log.Fatalf("Unexpected case: %v", reflect.TypeOf(peersRaw))
@@ -103,22 +103,34 @@ func loadPeers(t torrent.Torrent) ([]peer, error) {
 	return peers, nil
 }
 
-func NewClient(torrent torrent.Torrent) Client {
-	return Client{torrent: torrent}
-}
-
 func (cli *Client) ConnectToPeers() error {
-	peers, err := loadPeers(cli.torrent)
+	peerAddrPorts, err := loadPeerAddrPorts(cli.torrent)
 	if err != nil {
 		return err
 	}
 
-	// TODO: connect to peers!
-	for _, p := range peers {
-		fmt.Printf("%v\n", p.addrPort)
+	peers := make([]*connectedPeer, 0)
+	infoHash, err := cli.torrent.InfoHash()
+	if err != nil {
+		return err
 	}
 
+	for _, addrPort := range peerAddrPorts {
+		peer, err := connectToPeer(addrPort, infoHash)
+		if err != nil {
+			return err
+		}
+
+		peers = append(peers, &peer)
+	}
+
+	cli.peers = peers
+	util.DPrintf("Connected to peers successfully!")
 	return nil
+}
+
+func NewClient(torrent torrent.Torrent) Client {
+	return Client{torrent: torrent}
 }
 
 func Download() error {

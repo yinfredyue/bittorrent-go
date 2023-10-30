@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"reflect"
@@ -20,4 +21,23 @@ func AssertEqual(left interface{}, right interface{}) {
 		errMsg := fmt.Sprintf("unequal: left=%v, right=%v", left, right)
 		panic(errMsg)
 	}
+}
+
+func EncodeUint32(value uint32, length int) ([]byte, error) {
+	if length < 4 {
+		return nil, fmt.Errorf("buffer length < 4")
+	}
+
+	buffer := make([]byte, length)
+	binary.BigEndian.PutUint32(buffer[length-4:], value)
+
+	return buffer, nil
+}
+
+func ConcatBytes(bs []([]byte)) []byte {
+	res := make([]byte, 0)
+	for _, b := range bs {
+		res = append(res, b...)
+	}
+	return res
 }
