@@ -115,17 +115,28 @@ func (cli *Client) ConnectToPeers() error {
 		return err
 	}
 
+	peerChan := make(chan *connectedPeer)
+	defer close(peerChan)
 	for _, addrPort := range peerAddrPorts {
-		peer, err := connectToPeer(addrPort, infoHash)
-		if err != nil {
-			return err
-		}
+		go func(addrPort netip.AddrPort) {
+			peer, err := connectToPeer(addrPort, infoHash)
+			if err != nil {
+				util.DPrintf("cannot connect to peer @ %v, err: %v", addrPort, err)
+				peerChan <- nil
+			} else {
+				peerChan <- &peer
+			}
+		}(addrPort)
+	}
 
-		peers = append(peers, &peer)
+	for i := 0; i < len(peerAddrPorts); i++ {
+		if peer := <-peerChan; peer != nil {
+			peers = append(peers, peer)
+		}
 	}
 
 	cli.peers = peers
-	util.DPrintf("Connected to peers successfully!")
+	log.Printf("Connected to %v peers!", len(peers))
 	return nil
 }
 
