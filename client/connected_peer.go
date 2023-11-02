@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/netip"
 	"reflect"
+	"time"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/yinfredyue/bittorrent-go/message"
@@ -15,6 +16,7 @@ const (
 	pstr            = "BitTorrent protocol"
 	pstrLen         = len(pstr)
 	handshakeMsgLen = 49 + pstrLen
+	connectTimeout  = time.Second * time.Duration(5)
 )
 
 type connectedPeer struct {
@@ -84,7 +86,8 @@ func (p *connectedPeer) handleMsg(msg message.Msg) error {
 // - Receive any Have and Bitfield message
 // - Send Interested and wait handshake
 func connectToPeer(addrPort netip.AddrPort, infoHash []byte) (connectedPeer, error) {
-	conn, err := net.Dial("tcp", addrPort.String())
+	d := net.Dialer{Timeout: connectTimeout}
+	conn, err := d.Dial("tcp", addrPort.String())
 	if err != nil {
 		return connectedPeer{}, err
 	}
