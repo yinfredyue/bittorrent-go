@@ -84,9 +84,10 @@ func OfBytes(b []byte) (Torrent, error) {
 	if !ok {
 		return Torrent{}, decodeErr
 	}
-	util.DPrintf("len(Pieces): %v\n", len(pieceHashesBytes))
 
 	numPieces := len(pieceHashesBytes) / pieceHashLength
+	util.DPrintf("num of pieces: %v\n", numPieces)
+
 	pieceHashes := make([]([]byte), numPieces)
 	for i := 0; i < numPieces; i++ {
 		bytes := pieceHashesBytes[i*pieceHashLength : (i+1)*pieceHashLength]
